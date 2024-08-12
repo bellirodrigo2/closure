@@ -1,0 +1,26 @@
+data server
+    -has tables
+
+interfaces server
+    -admin interfaces
+
+asset server
+    - user defined hierarchical (tree-like) data structure
+    - keep updated data server addr, and build queries
+    
+# regras:
+#     id unico e global
+#     existem 2 tipos de INODE nodes e items
+#     node só pode ter node como parent, item qq tipo de parent
+#     nao pode name duplicado do mesmo tipo (node ou item) e mesmo parent
+#     cada INODE tem owner
+# só o owner pode escrever e ler seus nodes...admin pode apenas ler todos por enquanto
+# TODO pensar como fazer para liberar permissao de acesso e owner pubico
+#     cada INODE tem template
+# template fica registrado para qdo mudar...muda todos os nodes
+# templates ficam em outra tabela...desacoplado dessa...
+#   em um nivel mais alto, se consulta template, copia e cria items nessa tabela
+# essa tabela nao sabe nada sobre o a implementação do template.... só tem uma coluna de template apenas
+# TODO pensar como fazer undo...ou delete soft
+
+

@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "closure"
+version = "0.1.0"
+description = ""
+authors = ["RodBel"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+psycopg = {extras = ["binary"], version = "^3.2.1"}
+pydantic = "^2.8.2"
+
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.11.1"
+flake8 = "^7.1.0"
+ruff = "^0.5.6"
+black = "^24.8.0"
+isort = "^5.13.2"
+flake8-bandit = "^4.1.1"
+flake8-bugbear = "^24.4.26"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.2"
+pytest-asyncio = "^0.23.8"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,26 @@
+#python cache
+**/__pycache__/
+
+#poetry venv
+.venv/
+
+# pytest
+.pytest_cache/
+
+#ruff 
+.ruff_cache/
+
+#tox
+.tox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+#ide´s
+.idea/
+.vscode/
+
+#todo
+**/todo

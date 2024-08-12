@@ -1,0 +1,84 @@
+docker exec -it repo-postgres psql -U postgres
+/media/bellirodrigo/HD/tsd/tutorial_sample_company.csv /media/bellirodrigo/HD/tsd/tutorial_sample_tick.csv
+
+list tables:         \dt
+list functions:      \df
+list types:          \dT
+table schema:        \d+ <TABLENAME>
+change db:           \c <DBNAME>
+
+timescale
+
+
+ CREATE TABLE stocks_real_time (
+  time TIMESTAMPTZ NOT NULL,
+  symbol TEXT NOT NULL,
+  price DOUBLE PRECISION NULL,
+  day_volume INT NULL
+);
+
+#make a normal table a hypertable
+ SELECT create_hypertable('stocks', by_range('time'));
+
+ #ingest csv
+\COPY stocks_real_time from './tutorial_sample_tick.csv' DELIMITER ',' CSV HEADER;
+CREATE INDEX ix_symbol_time ON stocks_real_time (symbol, time DESC);
+
+SELECT * FROM stocks_real_time WHERE time > now() - INTERVAL '1 day';
+SELECT * FROM stocks_real_time ORDER_BY time DESC, price DESC LIMIT 10;
+
+SELECT avg(price) FROM table t1 JOIN table2 t2 ON t1.col = t2.col 
+    WHERE t1.col = 'string1' AND time > now() - INTERVAL '2 days';
+
+SELECT symbol, first(price, time), last(price, time) FROM table
+    WHERE time > now() - INTERVAL '3 days' GROUP BY symbol;
+
+SELECT
+    time_bucket('1 day', time) AS bucket,
+    symbol,
+    avg(price)
+FROM table WHERE time > now() - INTERVAL '1 week'
+GROUP BY bucket, symbol
+ORDER BY bucket, symbol;
+
+#continuous aggregate
+CREATE MATERIALIZED VIEW stocks_candlestick_daily
+WITH (timescaledb.continuous) AS
+SELECT
+time_bucket('1 day', "time") AS day,
+symbol,
+max(price) AS high,
+first(price, time) AS open,
+last(price, time) AS close,
+min(price) AS low
+FROM stocks_real_time srt
+GROUP BY day, symbol;
+
+-- #add refresh policy to the continuous aggregate
+SELECT add_continuous_aggregate_policy('stocks_candlestick_daily',
+start_offset => INTERVAL '3 days',
+end_offset => INTERVAL '1 hour',
+schedule_interval => INTERVAL '1 days');
+
+-- manual refresh the continuous aggregate
+CALL refresh_continuous_aggregate('stocks_candlestick_daily',
+now() - interval '1 week', now());
+
+-- data compression
+ALTER TABLE stocks_real_time set(
+timescaledb.compress,
+timescaledb.compress_orderby = 'time DESC',
+timescaledb.compress_segmentby = 'symbol'
+);
+
+SELECT add_compression_policy('stocks_real_time', INTERVAL '2 weeks');
+SELECT compress_chunk(i) FROM show_chunks('stocks_real_time',
+older_than => INTERVAL '2 weeks');
+
+-- retention policy
+SELECT add_retention_policy('stocks_real_time', INTERVAL '3 weeks');
+
+SELECT drop_chunks('stocks_real_time',
+older_than => INTERVAL '2 weeks',
+newer_than => INTERVAL '3 weeks'
+);

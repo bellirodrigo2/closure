@@ -41,16 +41,12 @@ DECLARE
     v_new_inode_id UUID;
 BEGIN
 
-    -- IF parent does not has same owner, raises
-    CALL is_owner(p_parent, p_owner);
-
-    -- CALL check_hierarchy(p_parent, p_node_type);
+    
+    CALL check_hierarchy(p_parent, p_node_type, p_owner);
 
     -- If there is a child with same name and type, raises
     CALL has_child(p_parent, p_name, p_node_type, p_owner);
 
-    --is_onwer return parent type ???
-    --FAZER UMA FUNÇÃO ESPECIFICA... is_owner, has_child e return parent_type
 
     IF p_template IS NULL THEN
         v_new_inode_id := insert_plain_node(p_name, p_owner, p_node_type, p_parent);

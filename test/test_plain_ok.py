@@ -14,10 +14,13 @@ from closure.closure import (
     clsr_insert,
     clsr_len,
     clsr_select_byid,
+    clsr_select_bypath,
     clsr_select_children,
     clsr_select_children_json,
+    clsr_select_children_wpath,
     clsr_select_descendants,
     clsr_select_descendants_json,
+    clsr_select_descendants_wpath,
     clsr_select_root_byid,
     clsr_select_roots,
 )
@@ -110,14 +113,6 @@ def pack():  # request: pytest.FixtureRequest):
                 conn.close()  # Close connection
 
 
-# cur.execute("""SELECT t.parent, n.name, t.depth FROM link t
-# JOIN inode n ON n.id = t.child
-# ;""")
-# rows = cur.fetchall()
-# for row in rows:
-# print(row)
-
-
 def get_name(rows: list[Any], idx: int | str):
     return sorted([i[idx] for i in rows])
 
@@ -191,6 +186,8 @@ def test_delete_node(pack: tuple[Cursor, UUID, Sequence[UUID]]):
 
     descendants = [i[0] for i in clsr_select_descendants(cur, owner, tgt)]
     assert get_name(descendants, 2) == sorted(["NODE16", "NODE17", "NODE18", "NODE19"])
+    # descendants = [i[0] for i in clsr_select_descendants_wpath(cur, owner, tgt)]
+    # assert get_name(descendants, 2) == sorted(["NODE16", "NODE17", "NODE18", "NODE19"])
 
     nums = clsr_delete_node(cur, owner, ids[16])
     assert nums[0] == 1
@@ -426,20 +423,20 @@ def test_get_path(pack: tuple[Cursor, UUID, Sequence[UUID]]):
 
     cur, owner, ids = pack
 
-    path = clsr_get_path(cur, owner, ids[6])
+    (path,) = clsr_get_path(cur, owner, ids[6])
 
-    assert path[0] == "NODE0.NODE2.NODE6"
+    assert path == "NODE0.NODE2.NODE6"
 
 
 def make_list_(st: int, end: int):
-    return [f"NODE{i}" for i in range(st, end)]
+    return sorted([f"NODE{i}" for i in range(st, end)])
 
 
 def test_select_children_json(pack: tuple[Cursor, UUID, Sequence[UUID]]):
 
     cur, owner, ids = pack
 
-    tgts = sorted(make_list_(6, 10))
+    tgts = make_list_(6, 10)
 
     (children,) = clsr_select_children_json(cur, owner, ids[2])
     assert get_name(children, "name") == tgts
@@ -449,7 +446,7 @@ def test_select_descendants_json(pack: tuple[Cursor, UUID, Sequence[UUID]]):
 
     cur, owner, ids = pack
 
-    tgts = sorted(make_list_(11, 15) + make_list_(6, 10))
+    tgts = make_list_(11, 15) + make_list_(6, 10)
 
     (descendants,) = clsr_select_descendants_json(cur, owner, ids[2])
     assert get_name(descendants, "name") == tgts
@@ -459,26 +456,68 @@ def test_children_w_path(pack: tuple[Cursor, UUID, Sequence[UUID]]):
 
     cur, owner, ids = pack
 
-    print("\n")
+    rows = clsr_select_children_wpath(cur, owner, ids[2])
+    assert get_name([x[0] for x in rows], 1) == make_list_(6, 10)
 
-    cur.execute(
-        """
-            SELECT select_child_path(%s, %s)""",
-        (ids[2], owner),
-    )
-    rows = cur.fetchall()
-    for r in rows:
-        print(r)
 
-    cur.execute(
-        """
-            SELECT select_internal_child_path(%s, %s)""",
-        (ids[2], owner),
-    )
-    rows = cur.fetchall()
-    for r in rows:
-        print(r)
+def test_descendants_w_path(pack: tuple[Cursor, UUID, Sequence[UUID]]):
 
-    # (children,) = clsr_select_children_json(cur, owner, ids[2])
-    # for r in children:
-    #     print(r)
+    cur, owner, ids = pack
+
+    rows = clsr_select_descendants_wpath(cur, owner, ids[2])
+
+    tgts = make_list_(11, 15) + make_list_(6, 10)
+    assert get_name([x[0] for x in rows], 2) == tgts
+
+
+def test_select_by_path(pack: tuple[Cursor, UUID, Sequence[UUID]]):
+
+    cur, owner, _ = pack
+
+    root = "NODE0"
+    names = [
+        "NODE1",
+    ]
+
+    (row,) = clsr_select_bypath(cur, owner, root, names)
+    assert row[1] == "NODE1"
+
+    names.append("NODE4")
+    (row,) = clsr_select_bypath(cur, owner, root, names)
+    assert row[1] == "NODE4"
+
+    names.append("NODE10")
+    (row,) = clsr_select_bypath(cur, owner, root, names)
+    assert row[1] == "NODE10"
+
+    names.append("NODE16")
+    (row,) = clsr_select_bypath(cur, owner, root, names)
+    assert row[1] == "NODE16"
+
+
+def test_low_level_check_hierarchy(pack: tuple[Cursor, UUID, Sequence[UUID]]):
+
+    cur, owner, ids = pack
+
+    cur.execute("CALL check_hierarchy(%s,%s,%s)", (None, "node", owner))
+
+    cur.execute("CALL check_hierarchy(%s,%s,%s)", (ids[2], "node", owner))
+    cur.execute("CALL check_hierarchy(%s,%s,%s)", params=(ids[2], "item", owner))
+
+
+def test_(pack: tuple[Cursor, UUID, Sequence[UUID]]):
+
+    cur, owner, ids = pack
+
+    rows = clsr_select_descendants_wpath(cur, owner, ids[0])
+    assert len(rows) == 19
+
+    assert clsr_delete_node(cur, owner, ids[1]) == (1,)
+
+    rows = clsr_select_descendants_wpath(cur, owner, ids[0])
+    assert len(rows) == 18
+
+    assert clsr_delete_node(cur, owner, ids[2]) == (1,)
+
+    rows = clsr_select_descendants_wpath(cur, owner, ids[0])
+    assert len(rows) == 17

@@ -21,7 +21,6 @@ CREATE TABLE inode (
 
 CREATE INDEX idx_inode_owner ON inode (owner);
 
-
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -57,15 +57,22 @@ def clsr_select_root_byid(cur: Cursor, owner: UUID, id: UUID):
     return cur.fetchone()
 
 
-def clsr_get_path(cur: Cursor, owner: UUID, id: UUID) -> str:
+def clsr_get_path(cur: Cursor, owner: UUID, id: UUID) -> Any:
 
     cur.execute(
         """
-                SELECT string_agg(n.name, '.') AS path FROM inode n
+                SELECT string_agg(n.name, '.' ORDER BY t.depth DESC) AS path FROM inode n
                 JOIN link t ON t.parent = n.id
-                WHERE t.child = %s""",
+                WHERE t.child = %s
+                """,
         (id,),
     )
+    return cur.fetchone()
+
+
+def clsr_select_bypath(cur: Cursor, owner: UUID, root: str, names: list[str]) -> Any:
+
+    cur.execute("SELECT select_child_bypath(%s, %s, %s)", (owner, root, names))
     return cur.fetchone()
 
 
@@ -87,12 +94,22 @@ def clsr_select_descendants(cur: Cursor, owner: UUID, id: UUID) -> Iterable[Any]
     return cur.fetchall()
 
 
-def clsr_select_children_json(cur: Cursor, owner: UUID, id: UUID) -> Iterable[Any]:
+def clsr_select_children_wpath(cur: Cursor, owner: UUID, id: UUID) -> Iterable[Any]:
+    cur.execute("SELECT select_child_path(%s, %s);", (id, owner))
+    return cur.fetchall()
+
+
+def clsr_select_descendants_wpath(cur: Cursor, owner: UUID, id: UUID) -> Iterable[Any]:
+    cur.execute("SELECT select_descendants_path(%s, %s);", (id, owner))
+    return cur.fetchall()
+
+
+def clsr_select_children_json(cur: Cursor, owner: UUID, id: UUID) -> Any:
     cur.execute("SELECT select_children_json(%s, %s);", (id, owner))
     return cur.fetchone()
 
 
-def clsr_select_descendants_json(cur: Cursor, owner: UUID, id: UUID) -> Iterable[Any]:
+def clsr_select_descendants_json(cur: Cursor, owner: UUID, id: UUID) -> Any:
     cur.execute("SELECT select_descendants_json(%s, %s);", (id, owner))
     return cur.fetchone()
 

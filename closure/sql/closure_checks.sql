@@ -104,7 +104,8 @@ $$;
 
 CREATE OR REPLACE PROCEDURE check_hierarchy(
     p_parent UUID, 
-    p_node_type NODETYPE
+    p_node_type NODETYPE,
+    p_owner UUID
 )
 LANGUAGE plpgsql
 AS $$
@@ -112,23 +113,31 @@ DECLARE
     v_parent_type NODETYPE;
 BEGIN
 
+    -- root should be "node" only
+    IF p_parent IS NULL THEN
+        IF p_node_type <> 'node' THEN
+            RAISE EXCEPTION 'Root Element cannot be %', p_node_type;
+        ELSE
+            RETURN;
+        END IF;
+    END IF;
+
     SELECT n.node_type FROM inode n
     INTO v_parent_type
     WHERE  n.id = p_parent
-    -- AND n.owner = p_owner -- AQUI È PARA JA FAZER O is_owner
-    -- MAS SE ESSE SELECT retornar vazio, como fica o if abaixo com 'v_parent_type = NULL' 
+    AND n.owner = p_owner
     ;
 
-    IF 
-        p_node_type = 'node' AND (v_parent_type is NOT NULL OR v_parent_type <> 'node')
-        OR
-        p_node_type = 'item' AND (v_parent_type IS NULL OR v_parent_type = 'template')
-        OR
-        p_node_type = 'template' AND v_parent_type IS NOT NULL
-     THEN
-        RAISE EXCEPTION 'Node type % can´t have a parent %s', p_node_type,  v_parent_type;
-
+    IF v_parent_type IS NULL THEN
+        RAISE EXCEPTION 'Parent %s not found for owner %s', p_parent, p_owner;
     END IF;
 
+    IF 
+        p_node_type = 'node' AND v_parent_type <> 'node'
+        -- OR
+        -- p_node_type = 'item' AND (v_parent_type <> 'node' OR v_parent_type <> 'item')
+     THEN
+        RAISE EXCEPTION 'Node type % can´t have a parent %s', p_node_type,  v_parent_type;
+    END IF;
 END;
 $$;
